@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+.pytest_cache/
+
+# Node / Vite
+node_modules/
+dist/
+.firebase/
+
+# Misc
+.DS_Store
+*.log
