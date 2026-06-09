@@ -170,7 +170,7 @@ cd frontend && npm install && npm run dev
 |:------|:-----------|
 | **Agents / Backend** | Python 3.11 · FastAPI · asyncio · Server-Sent Events |
 | **Reasoning** | Google **Gemini 2.5 Flash** on **Vertex AI** (Google Cloud), via the `google-genai` SDK |
-| **Observability** | **Dynatrace** via the official **MCP server** — `list_problems` · `execute_dql` · `find_entity_by_name` |
+| **Observability** | **Dynatrace** — official **MCP server** (`list_problems` · `execute_dql` · `find_entity_by_name`) locally; **REST API** headless on Cloud Run |
 | **Frontend** | React 18 + Vite · Tailwind CSS · Framer Motion · **Three.js** (3D hero) · **D3** force-directed graph |
 | **Auth** | Firebase Authentication (Google + email) with graceful demo fallback |
 | **Persistence** | **Google Cloud Firestore** · graceful in-memory fallback |
@@ -192,11 +192,24 @@ and calls real MCP tools to investigate live incidents:
 | **`execute_dql`** | Fetch logs / events / spans / metrics via Grail DQL as investigation evidence |
 | **`find_entity_by_name`** | Resolve the affected monitored entity |
 
-A single MCP server process + session is spawned and reused, so the OAuth login happens once.
+A single MCP server process + session is spawned and reused, so the interactive Dynatrace
+OAuth login happens **once** per run.
+
+**Two live paths, by design — read this if you're judging:**
+
+| Where it runs | Live Dynatrace path | Why |
+|:---|:---|:---|
+| **Locally** (your machine / the demo video) | **Official MCP server** — `list_problems`, `execute_dql`, `find_entity_by_name` fire against the tenant | The MCP server authenticates through an **interactive browser OAuth** login (Dynatrace SSO) |
+| **Hosted** (Cloud Run, the judging URL) | **Dynatrace REST API** against the same tenant | Cloud Run is **headless** — it can't open a browser for the MCP OAuth flow, so the deployed service uses Dynatrace's token-based REST API for always-on, never-expiring operation |
+
+Both talk to real Dynatrace data; the agent code is identical and simply selects the path at
+startup. The MCP integration is shown live in the demo video and lives in
+[`dynatrace_mcp.py`](backend/connectors/dynatrace_mcp.py); the hosted URL proves the same agent
+running as a real Google Cloud product.
+
 `DEMO_MODE=true` uses a deterministic simulation ([`scenarios.py`](backend/connectors/scenarios.py))
-so the system also runs with **zero accounts**; a classic Dynatrace REST client remains as a
-legacy fallback. Live values are unit-normalized; anything that can't be resolved is hidden
-rather than shown wrong.
+so the system also runs with **zero accounts**. Live values are unit-normalized; anything that
+can't be resolved is hidden rather than shown wrong.
 
 ### Environment variables & going live
 
