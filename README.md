@@ -14,11 +14,7 @@
 A four-agent autonomous SRE that turns a raw Dynatrace alert into a complete,
 evidence-backed post-mortem in **under 60 seconds** — no human in the loop.
 
-<br/>
 
-### ▶︎ Live demo: **[specterops-848e3.web.app](https://specterops-848e3.web.app)**
-
-<br/>
 
 [![Live Demo](https://img.shields.io/badge/▶_Live_Demo-specterops--848e3.web.app-00f5a0?style=for-the-badge)](https://specterops-848e3.web.app)
 
