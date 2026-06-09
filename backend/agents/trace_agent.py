@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
-from mcp import scenarios
-from mcp.dynatrace_client import DynatraceClient
+from connectors import dynatrace_mcp, scenarios
+from connectors.dynatrace_client import DynatraceClient, dynatrace_configured
 from models.incident import (
     AgentStep,
     Incident,
@@ -95,16 +96,49 @@ async def run_trace_archaeologist(incident: Incident) -> Incident:
         incident.affected_services[0] if incident.affected_services else "payment-service"
     )
 
-    client = DynatraceClient(problem_id=incident.dynatrace_problem_id, scenario=scenario)
-    entity_ids = scenario.get("dt_entity_ids")
+    demo = os.getenv("DEMO_MODE", "true").lower() in ("1", "true", "yes")
+    # Only a REAL Dynatrace problem (scenario id "dynatrace") hits the live API.
+    # Built-in/custom scenarios are fictional and always use simulated telemetry,
+    # so they stay rich even when the server runs in live (DEMO_MODE=false) mode.
+    is_live_scenario = scenario.get("id") == "dynatrace"
+    mcp_mode = is_live_scenario and (not demo) and dynatrace_mcp.mcp_configured()
 
-    traces, logs, topology, rt_metrics, err_metrics = await asyncio.gather(
-        client.get_traces(primary),
-        client.get_logs(primary),
-        client.get_topology(primary),
-        client.get_metrics("builtin:service.response.time", primary, entity_ids=entity_ids),
-        client.get_metrics("builtin:service.errors.total.rate", primary, entity_ids=entity_ids),
-    )
+    # When a real problem + MCP is available, gather evidence through the OFFICIAL
+    # Dynatrace MCP server (list_problems / execute_dql / find_entity_by_name).
+    mcp_evidence: Dict[str, Any] | None = None
+    if mcp_mode:
+        try:
+            mcp_evidence = await dynatrace_mcp.gather_evidence(
+                primary, incident.dynatrace_problem_id or ""
+            )
+        except Exception:
+            mcp_evidence = None
+
+    live_units = False
+    if mcp_evidence is not None:
+        incident.raw_data["mcp_evidence"] = mcp_evidence
+        incident.raw_data["mcp_tools_used"] = mcp_evidence.get("tool_calls", [])
+        live_units = True
+        traces = {"traces": []}
+        logs = {"results": []}
+        topology = {"entities": []}
+        rt_metrics = {"result": []}
+        err_metrics = {"result": []}
+    else:
+        # Live REST only for a real Dynatrace problem; otherwise simulate.
+        simulate = not (is_live_scenario and (not demo) and dynatrace_configured())
+        client = DynatraceClient(
+            problem_id=incident.dynatrace_problem_id, scenario=scenario, simulate=simulate
+        )
+        live_units = not client.demo
+        entity_ids = scenario.get("dt_entity_ids")
+        traces, logs, topology, rt_metrics, err_metrics = await asyncio.gather(
+            client.get_traces(primary),
+            client.get_logs(primary),
+            client.get_topology(primary),
+            client.get_metrics("builtin:service.response.time", primary, entity_ids=entity_ids),
+            client.get_metrics("builtin:service.errors.total.rate", primary, entity_ids=entity_ids),
+        )
 
     incident.raw_data["traces"] = traces
     incident.raw_data["logs"] = logs
@@ -137,7 +171,7 @@ async def run_trace_archaeologist(incident: Incident) -> Incident:
     # Unit normalization. The simulated metrics use a 0–1 error fraction and
     # milliseconds; live Dynatrace returns failure rate as a percent (0–100) and
     # response time in MICROSECONDS. Normalize both to "%" and "ms".
-    live = not client.demo
+    live = live_units
 
     def _err_pct(mx):
         if not mx:
@@ -202,11 +236,20 @@ async def run_trace_archaeologist(incident: Incident) -> Incident:
         else ""
     )
 
+    mcp_block = ""
+    if mcp_evidence:
+        mcp_block = (
+            "LIVE DYNATRACE DATA — fetched via the official Dynatrace MCP server:\n"
+            f"Error/Warn logs (execute_dql):\n{(mcp_evidence.get('logs') or '(none)')[:2500]}\n\n"
+            f"Recent events (execute_dql):\n{(mcp_evidence.get('events') or '(none)')[:1200]}\n\n"
+            f"Affected entity (find_entity_by_name):\n{(mcp_evidence.get('entity') or '(none)')[:800]}\n\n"
+        )
+
     prompt = f"""You are an SRE reconstructing an incident timeline from observability data.
 
 PRIMARY SERVICE: {primary}
 
-{evidence_block}TRACE SUMMARY:
+{evidence_block}{mcp_block}TRACE SUMMARY:
 {json.dumps(trace_summary, indent=2, default=str)}
 
 METRIC SUMMARY (baseline -> spike):
@@ -271,16 +314,20 @@ Order events oldest-first (largest offset first). Mark the earliest true anomaly
     incident.timeline = events
 
     cascade = result.get("cascade_chain", [])
-    incident.agent_steps.append(
-        AgentStep(
-            agent_name="TraceArchaeologist",
-            action=f"Queried Dynatrace MCP (traces/logs/metrics/topology) for {primary}",
-            result=(
-                f"Reconstructed {len(events)} timeline events | "
-                f"error rate {trace_summary['error_rate_pct']}% | "
-                f"p99 {trace_summary['p99_ms']}ms | "
-                f"cascade: {' -> '.join(cascade) if cascade else 'n/a'}"
-            ),
+    if mcp_evidence is not None:
+        tools = ", ".join(dict.fromkeys(mcp_evidence.get("tool_calls", []))) or "list_problems, execute_dql"
+        action = f"Queried the Dynatrace MCP server (tools: {tools}) for {primary}"
+        detail = f"Reconstructed {len(events)} timeline events from live Dynatrace data via MCP"
+    else:
+        action = f"Queried Dynatrace (traces/logs/metrics/topology) for {primary}"
+        detail = (
+            f"Reconstructed {len(events)} timeline events | "
+            f"error rate {trace_summary['error_rate_pct']}% | "
+            f"p99 {trace_summary['p99_ms']}ms | "
+            f"cascade: {' -> '.join(cascade) if cascade else 'n/a'}"
         )
+
+    incident.agent_steps.append(
+        AgentStep(agent_name="TraceArchaeologist", action=action, result=detail)
     )
     return incident

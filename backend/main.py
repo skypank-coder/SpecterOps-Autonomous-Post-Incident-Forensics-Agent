@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.orchestrator import hydrate_from_storage
+from connectors import dynatrace_mcp
 from routes.incidents import router as incidents_router
 from routes.meta import router as meta_router
 from routes.stream import router as stream_router
@@ -25,6 +26,11 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
     yield
+    # Tear down the shared Dynatrace MCP server session on shutdown.
+    try:
+        await dynatrace_mcp.close()
+    except Exception:
+        pass
 
 
 app = FastAPI(

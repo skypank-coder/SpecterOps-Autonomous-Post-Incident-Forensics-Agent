@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timedelta
 from typing import Any, Dict
 
-from mcp import scenarios
+from connectors import scenarios
 from models.incident import (
     AgentStep,
     CausalEdge,

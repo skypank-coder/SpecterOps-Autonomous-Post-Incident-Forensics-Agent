@@ -15,8 +15,8 @@ import pytest
 os.environ.setdefault("DEMO_MODE", "true")
 
 from agents.orchestrator import forget_incident, process_incident
-from mcp import mock_data
-from mcp.dynatrace_client import DynatraceClient
+from connectors import mock_data
+from connectors.dynatrace_client import DynatraceClient
 from models.incident import IncidentStatus
 
 

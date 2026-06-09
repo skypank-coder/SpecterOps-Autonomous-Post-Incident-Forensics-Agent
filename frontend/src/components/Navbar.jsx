@@ -5,9 +5,9 @@ import { useAuth } from "../context/AuthContext.jsx";
 
 const LINKS = [
   { label: "How it works", href: "#how" },
+  { label: "Stack", href: "#stack" },
   { label: "Live demo", href: "#demo" },
   { label: "Platform", href: "#features" },
-  { label: "Impact", href: "#impact" },
 ];
 
 function Avatar({ user }) {

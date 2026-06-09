@@ -23,7 +23,7 @@ evidence-backed post-mortem in **under 60 seconds** — no human in the loop.
 [![Partner: Dynatrace](https://img.shields.io/badge/Partner-Dynatrace-9b6cff)]()
 [![AI: Gemini 2.5 Flash](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4f8cff)]()
 [![Frontend: Firebase](https://img.shields.io/badge/Frontend-Firebase%20Hosting-f5a623)]()
-[![Backend: Render](https://img.shields.io/badge/Backend-Render-46e3b7)]()
+[![Backend: Cloud Run](https://img.shields.io/badge/Backend-Cloud%20Run-4f8cff)]()
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg)]()
 [![React 18](https://img.shields.io/badge/React-18-61dafb.svg)]()
 
@@ -57,18 +57,18 @@ cascade across three services — with **94% confidence, in ~0.3s of compute.**
 ## ✨ What's inside
 
 - 🤖 **Four autonomous agents** orchestrated end-to-end, reasoning with **Google Gemini 2.5 Flash**.
-- 🟣 **Live Dynatrace integration** — **browse all open problems** in your tenant and investigate any one you pick (or auto-grab the latest); the finished RCA can be **pushed back onto the problem as a comment** (closing the loop).
+- 🟣 **Official Dynatrace MCP server integration** — the agent is a Model Context Protocol client that calls real MCP tools (`list_problems`, `execute_dql`, `find_entity_by_name`) to **browse all open problems** and investigate any one with live telemetry.
 - 🧪 **Scenario library + custom incidents** — four real-world failure scenarios (missing index, memory leak, bad deploy, dependency outage) plus a **"describe your own"** form.
 - 📡 **Real-time SSE streaming** — every agent's start/finish streams live to the dashboard.
 - 🕸️ **D3 causal graph** + **Three.js** 3D hero + **Framer Motion** — a business-grade UI, not a toy.
 - 🔐 **Firebase auth** (Google + email) with a graceful demo fallback; investigations are saved **per user**.
-- 💾 **MongoDB Atlas persistence** — history survives restarts; graceful in-memory fallback when unset.
+- 💾 **Cloud Firestore persistence** — history survives restarts on Google Cloud; graceful in-memory fallback when unset.
 - 📤 **Export & deliver** — copy/download the post-mortem as Markdown, or **send it to Slack**.
 - 🛡️ **Resilient by design** — a Gemini model-fallback chain, a scenario-accurate offline mode, and graceful degradation everywhere mean it runs with **zero accounts** and never breaks on stage.
 - ✅ **Tested** — `pytest` suite + **GitHub Actions CI** on every push.
 
 > Every integration is optional and upgrades a capability from *demo* → *real*. See
-> **[INTEGRATIONS.md](INTEGRATIONS.md)** for exact setup (Gemini, Dynatrace, MongoDB, Firebase, Slack).
+> **[INTEGRATIONS.md](INTEGRATIONS.md)** for exact setup (Gemini, Dynatrace, Firestore, Firebase, Slack).
 
 ---
 
@@ -169,47 +169,45 @@ cd frontend && npm install && npm run dev
 | Layer | Technology |
 |:------|:-----------|
 | **Agents / Backend** | Python 3.11 · FastAPI · asyncio · Server-Sent Events |
-| **Reasoning** | Google **Gemini 2.5 Flash** via the `google-genai` SDK (resilient model-fallback chain) |
-| **Observability** | **Dynatrace** v2 API — problems · metrics · entities · logs |
+| **Reasoning** | Google **Gemini 2.5 Flash** on **Vertex AI** (Google Cloud), via the `google-genai` SDK |
+| **Observability** | **Dynatrace** via the official **MCP server** — `list_problems` · `execute_dql` · `find_entity_by_name` |
 | **Frontend** | React 18 + Vite · Tailwind CSS · Framer Motion · **Three.js** (3D hero) · **D3** force-directed graph |
 | **Auth** | Firebase Authentication (Google + email) with graceful demo fallback |
-| **Persistence** | MongoDB Atlas · graceful in-memory fallback |
-| **Deployment** | Docker · **Render** (backend) · **Firebase Hosting** (frontend) — 100% free tier |
+| **Persistence** | **Google Cloud Firestore** · graceful in-memory fallback |
+| **Deployment** | Docker · **Google Cloud Run** (backend) · **Firebase Hosting** (frontend) |
 | **Quality** | `pytest` + `pytest-asyncio` · GitHub Actions CI |
 
 </div>
 
-### Dynatrace integration
+### Dynatrace integration — via the official MCP server
 
-The `TraceArchaeologist` talks to Dynatrace through one async client
-([`dynatrace_client.py`](backend/mcp/dynatrace_client.py)). The **"Investigate latest live
-Dynatrace problem"** action auto-pulls a real open problem and runs the full pipeline on it;
-the finished RCA can be **pushed back onto the problem** as a comment (closing the loop).
+This is the heart of the Dynatrace track. The `TraceArchaeologist` agent is a **Model
+Context Protocol client** ([`dynatrace_mcp.py`](backend/connectors/dynatrace_mcp.py)) that
+connects to the **official Dynatrace MCP server** (`@dynatrace-oss/dynatrace-mcp-server`)
+and calls real MCP tools to investigate live incidents:
 
-| Capability     | Endpoint                          | Token scope        |
-|:---------------|:----------------------------------|:-------------------|
-| Open problems  | `GET  /api/v2/problems`           | `problems.read`    |
-| Problem detail | `GET  /api/v2/problems/{id}`      | `problems.read`    |
-| Metrics        | `GET  /api/v2/metrics/query`      | `metrics.read`     |
-| Topology       | `GET  /api/v2/entities`           | `entities.read`    |
-| Logs           | `GET  /api/v2/logs/search`        | `logs.read`        |
-| Push RCA back  | `POST /api/v2/problems/{id}/comments` | `problems.write` |
+| MCP tool | What SpecterOps does with it |
+|:---|:---|
+| **`list_problems`** | Pull live open problems from the tenant (the picker + the chosen incident) |
+| **`execute_dql`** | Fetch logs / events / spans / metrics via Grail DQL as investigation evidence |
+| **`find_entity_by_name`** | Resolve the affected monitored entity |
 
-`DEMO_MODE=true` uses a deterministic simulation ([`scenarios.py`](backend/mcp/scenarios.py))
-so the system runs with **zero accounts**; `DEMO_MODE=false` investigates **real** problems.
-Response time (µs) and failure rate (%) from live Dynatrace are unit-normalized; values that
-can't be resolved are hidden rather than shown wrong.
+A single MCP server process + session is spawned and reused, so the OAuth login happens once.
+`DEMO_MODE=true` uses a deterministic simulation ([`scenarios.py`](backend/connectors/scenarios.py))
+so the system also runs with **zero accounts**; a classic Dynatrace REST client remains as a
+legacy fallback. Live values are unit-normalized; anything that can't be resolved is hidden
+rather than shown wrong.
 
 ### Environment variables & going live
 
 Everything runs with no keys. Each one upgrades a capability from demo → real — see the full
-step-by-step **[INTEGRATIONS.md](INTEGRATIONS.md)** (Gemini, Dynatrace, MongoDB, Firebase, Slack).
+step-by-step **[INTEGRATIONS.md](INTEGRATIONS.md)** (Gemini, Dynatrace, Firestore, Firebase, Slack).
 
 | Variable | Unlocks |
 |:---|:---|
-| `GEMINI_API_KEY` (+ `GEMINI_MODEL=gemini-2.5-flash`) | Real AI reasoning (vs offline fallback) |
+| `GOOGLE_GENAI_USE_VERTEXAI=true` + `GOOGLE_CLOUD_PROJECT` + `GOOGLE_CLOUD_LOCATION` | Gemini reasoning on **Vertex AI** (Google Cloud) |
 | `DEMO_MODE=false` + `DYNATRACE_URL` + `DYNATRACE_API_TOKEN` | Investigate real Dynatrace problems |
-| `MONGODB_URI` | Persistent incident history |
+| `GOOGLE_CLOUD_PROJECT` (+ Firestore enabled) | Persistent incident history on **Cloud Firestore** |
 | `VITE_FIREBASE_*` (in `frontend/.env`) | Real Google / email sign-in |
 | `SLACK_WEBHOOK_URL` | Deliver post-mortems to Slack |
 
@@ -240,17 +238,17 @@ DEMO_MODE=true python -m pytest      # 7 passed
 ```
 SpecterOps/
 ├── .github/workflows/ci.yml    # backend tests + frontend build
-├── render.yaml                 # Render Blueprint (backend deploy)
 ├── firebase.json · .firebaserc # Firebase Hosting (frontend deploy)
-├── INTEGRATIONS.md             # go-live guide (Gemini · Dynatrace · Mongo · Firebase · Slack)
+├── backend/Dockerfile          # container → Google Cloud Run (Node + Python + MCP)
+├── INTEGRATIONS.md             # go-live guide (Gemini · Dynatrace · Firestore · Firebase · Slack)
 ├── LICENSE                     # MIT
 ├── backend/                    # FastAPI app
 │   ├── agents/                 # orchestrator + the 4 agents
-│   ├── mcp/                    # Dynatrace client + scenario engine
+│   ├── connectors/             # Dynatrace MCP client + scenario engine
 │   ├── models/                 # Pydantic domain models
 │   ├── routes/                 # incidents · webhook · SSE stream · config
 │   ├── utils/                  # Gemini client (model fallback chain)
-│   ├── storage.py              # MongoDB persistence (graceful fallback)
+│   ├── storage.py              # Cloud Firestore persistence (graceful fallback)
 │   └── tests/                  # pytest suite
 └── frontend/                   # React + Vite dashboard
     └── src/components/         # launcher · agents · D3 graph · evidence · post-mortem · auth
@@ -274,7 +272,7 @@ SpecterOps/
 ## 🗺️ Roadmap
 
 Already shipped: live Dynatrace problem pull + RCA push-back, scenario library + custom
-incidents, MongoDB persistence, Firebase auth, Slack delivery. Next:
+incidents, Cloud Firestore persistence, Firebase auth, Slack delivery. Next:
 
 - 🤖 Approval-gated **auto-remediation execution** (wire the proposed fix into CI/CD)
 - 👥 **Per-user Dynatrace** connect (multi-tenant, OAuth) so each user investigates their own tenant
@@ -290,5 +288,5 @@ incidents, MongoDB persistence, Firebase auth, Slack delivery. Next:
 
 <div align="center">
 <br/>
-<sub>Built with Gemini 2.5 Flash · Dynatrace · Render · Firebase — for the Google Cloud Rapid Agent Hackathon 2026.</sub>
+<sub>Built with Gemini 2.5 Flash on Vertex AI · Dynatrace MCP · Cloud Run · Firebase — for the Google Cloud Rapid Agent Hackathon 2026.</sub>
 </div>

@@ -39,15 +39,36 @@ _env_model = os.getenv("GEMINI_MODEL", "").strip()
 MODEL_CANDIDATES = ([_env_model] + _DEFAULT_MODELS) if _env_model else _DEFAULT_MODELS
 MODEL = MODEL_CANDIDATES[0]  # primary / advertised model
 
-_PLACEHOLDERS = {"", "your_gemini_api_key_here", "your_key", "changeme"}
+_PLACEHOLDERS = {"", "your_gemini_api_key_here", "your_key", "changeme", "your_gcp_project_id"}
 _API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
+# Prefer Vertex AI (Google Cloud) when configured. On Cloud Run, auth is the
+# service's own identity (Application Default Credentials) — no key needed. Set
+# GOOGLE_GENAI_USE_VERTEXAI=true and GOOGLE_CLOUD_PROJECT to enable it.
+_USE_VERTEX = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "").lower() in ("1", "true", "yes")
+_GCP_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
+_GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1").strip() or "us-central1"
+
 _client = None
-if _API_KEY and _API_KEY not in _PLACEHOLDERS:
+_provider = "none"
+if _USE_VERTEX and _GCP_PROJECT and _GCP_PROJECT not in _PLACEHOLDERS:
     try:
-        _client = genai.Client(api_key=_API_KEY)
+        _client = genai.Client(vertexai=True, project=_GCP_PROJECT, location=_GCP_LOCATION)
+        _provider = "vertex"
     except Exception:  # pragma: no cover - defensive
         _client = None
+if _client is None and _API_KEY and _API_KEY not in _PLACEHOLDERS:
+    try:
+        _client = genai.Client(api_key=_API_KEY)
+        _provider = "aistudio"
+    except Exception:  # pragma: no cover - defensive
+        _client = None
+
+
+def provider() -> str:
+    """'vertex' (Google Cloud), 'aistudio', or 'none'."""
+    return _provider
+
 
 # The model confirmed to work in this process (filled lazily on first call).
 _active_model: str | None = None

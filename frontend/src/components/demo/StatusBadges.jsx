@@ -20,31 +20,33 @@ function Badge({ icon: Icon, label, on, onText, offText }) {
 export default function StatusBadges({ config }) {
   if (!config) return null;
   const gemini = config.gemini?.connected;
+  const geminiVia = config.gemini?.provider; // "vertex" | "aistudio"
   const dt = config.dynatrace?.connected;
+  const dtVia = config.dynatrace?.via; // "mcp" | "rest" | null
   const store = config.storage?.connected;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Badge
         icon={Cpu}
-        label={gemini ? `Gemini · ${config.gemini.model || "live"}` : "Gemini · offline"}
+        label={gemini ? (geminiVia === "vertex" ? "Gemini · Vertex AI" : `Gemini · ${config.gemini.model || "live"}`) : "Gemini · offline"}
         on={gemini}
-        onText="Live Gemini reasoning"
+        onText={geminiVia === "vertex" ? "Gemini 2.5 Flash on Vertex AI (Google Cloud)" : "Live Gemini reasoning"}
         offText="Offline fallback (add GEMINI_API_KEY)"
       />
       <Badge
         icon={Activity}
-        label={dt ? "Dynatrace · live" : "Dynatrace · demo"}
+        label={dt ? (dtVia === "mcp" ? "Dynatrace · MCP" : "Dynatrace · live") : "Dynatrace · demo"}
         on={dt}
-        onText="Connected to live Dynatrace"
+        onText={dtVia === "mcp" ? "Live via the official Dynatrace MCP server" : "Connected to live Dynatrace"}
         offText="Simulated telemetry (DEMO_MODE)"
       />
       <Badge
         icon={Database}
-        label={store ? "DB · persisted" : "DB · in-memory"}
+        label={store ? "Firestore · persisted" : "DB · in-memory"}
         on={store}
-        onText="Incidents persisted to MongoDB"
-        offText="In-memory (add MONGODB_URI)"
+        onText="Incidents persisted to Cloud Firestore"
+        offText="In-memory (enable Firestore)"
       />
     </div>
   );

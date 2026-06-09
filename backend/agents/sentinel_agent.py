@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
-from mcp import scenarios
+from connectors import scenarios
 from models.incident import AgentStep, Incident, IncidentSeverity
 from utils.gemini_client import gemini_json
 

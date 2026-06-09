@@ -66,18 +66,22 @@ Lets SpecterOps pull **real open problems** from your tenant and analyze them.
 
 ---
 
-## 3. MongoDB Atlas (persistent history) — free M0
+## 3. Google Cloud Firestore (persistent history) — free tier
 
-Without it, incidents live in memory and reset on restart. With it, history persists.
+Without it, incidents live in memory and reset on restart. With it, history persists —
+on Google Cloud, so the whole stack stays on Google + Dynatrace (fully track-compliant).
 
-1. Create a free account at **https://www.mongodb.com/atlas** and a free **M0** cluster.
-2. **Database Access** → Add a database user (username + password).
-3. **Network Access** → Add IP → allow your IP (or `0.0.0.0/0` for testing).
-4. **Connect → Drivers → Python** → copy the SRV connection string and insert your password:
+1. In the [Google Cloud Console](https://console.cloud.google.com), select your project.
+2. Enable the API and create the default database (Native mode):
+   ```bash
+   gcloud services enable firestore.googleapis.com
+   gcloud firestore databases create --location=nam5
    ```
-   MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/specterops
-   ```
-5. Put it in `backend/.env`, restart. The status badge flips to **DB · persisted**.
+3. Set `GOOGLE_CLOUD_PROJECT=<your-project-id>` in `backend/.env`.
+   - **Local:** run `gcloud auth application-default login` once for credentials.
+   - **Cloud Run:** nothing to do — it authenticates as the service's own identity
+     (grant the runtime service account `roles/datastore.user`).
+4. Restart. The status badge flips to **Firestore · persisted**.
 
 ---
 

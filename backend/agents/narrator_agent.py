@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List
 
-from mcp import scenarios
+from connectors import scenarios
 from models.incident import AgentStep, Incident
 from utils.gemini_client import gemini_reason
 

@@ -6,9 +6,9 @@ import os
 from fastapi import APIRouter
 
 import storage
-from mcp import scenarios
-from mcp.dynatrace_client import DynatraceClient, dynatrace_configured
-from utils.gemini_client import active_model, gemini_available
+from connectors import dynatrace_mcp, scenarios
+from connectors.dynatrace_client import DynatraceClient, dynatrace_configured
+from utils.gemini_client import active_model, gemini_available, provider as gemini_provider
 
 router = APIRouter(prefix="/api", tags=["meta"])
 
@@ -26,14 +26,16 @@ async def get_config():
         "gemini": {
             "connected": gemini_available(),
             "model": active_model() if gemini_available() else None,
+            "provider": gemini_provider(),  # "vertex" | "aistudio" | "none"
         },
         "dynatrace": {
-            "connected": dynatrace_configured() and not demo_mode,
-            "configured": dynatrace_configured(),
+            "connected": (dynatrace_mcp.mcp_configured() or dynatrace_configured()) and not demo_mode,
+            "configured": dynatrace_mcp.mcp_configured() or dynatrace_configured(),
+            "via": "mcp" if dynatrace_mcp.mcp_configured() else ("rest" if dynatrace_configured() else None),
         },
         "storage": {
             "connected": storage.enabled(),
-            "backend": "mongodb" if storage.enabled() else "in-memory",
+            "backend": storage.backend_name(),
         },
         "slack": {"connected": _slack_configured()},
     }
@@ -52,14 +54,36 @@ async def get_scenarios():
 @router.get("/dynatrace/problems")
 async def list_dynatrace_problems():
     """List open problems from the live Dynatrace tenant so the user can pick one."""
-    if _demo_mode() or not dynatrace_configured():
+    if _demo_mode():
+        return {"connected": False, "problems": []}
+
+    # Preferred path: the official Dynatrace MCP server.
+    if dynatrace_mcp.mcp_configured():
+        try:
+            probs = await dynatrace_mcp.list_problems(status="ACTIVE", timeframe="2h", limit=25)
+        except Exception as exc:
+            return {"connected": True, "via": "mcp", "error": str(exc)[:200], "problems": []}
+        out = [{
+            "id": p["id"],
+            "display_id": p["display_id"],
+            "title": p["title"],
+            "severity": p["severity"],
+            "status": p["status"],
+            "category": p["category"],
+            "services": [],
+            "service_count": 0,
+            "start_time": None,
+        } for p in probs]
+        return {"connected": True, "via": "mcp", "problems": out}
+
+    if not dynatrace_configured():
         return {"connected": False, "problems": []}
 
     client = DynatraceClient()
     try:
         data = await client.get_open_problems()
     except Exception as exc:  # surface, don't crash
-        return {"connected": True, "error": str(exc)[:200], "problems": []}
+        return {"connected": True, "via": "rest", "error": str(exc)[:200], "problems": []}
 
     out = []
     for p in (data.get("problems", []) or [])[:25]:

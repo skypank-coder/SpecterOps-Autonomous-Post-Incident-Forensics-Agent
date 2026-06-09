@@ -17,8 +17,8 @@ from agents.orchestrator import (
     get_incident,
     process_incident,
 )
-from mcp import scenarios
-from mcp.dynatrace_client import DynatraceClient, dynatrace_configured
+from connectors import dynatrace_mcp, scenarios
+from connectors.dynatrace_client import DynatraceClient, dynatrace_configured
 
 router = APIRouter(prefix="/api/incidents", tags=["incidents"])
 
@@ -117,11 +117,47 @@ async def trigger_custom(body: CustomIncidentRequest):
 async def trigger_from_dynatrace(body: Optional[TriggerRequest] = None):
     """Pull the most recent OPEN problem from the live Dynatrace tenant and analyze it."""
     body = body or TriggerRequest()
-    if _demo_mode() or not dynatrace_configured():
+    if _demo_mode() or not (dynatrace_mcp.mcp_configured() or dynatrace_configured()):
         raise HTTPException(
             status_code=400,
-            detail="Live Dynatrace is not connected. Set DYNATRACE_URL, DYNATRACE_API_TOKEN and DEMO_MODE=false.",
+            detail="Live Dynatrace is not connected. Set DT_ENVIRONMENT (MCP) or DYNATRACE_URL/TOKEN, and DEMO_MODE=false.",
         )
+
+    # Preferred path: the official Dynatrace MCP server.
+    if dynatrace_mcp.mcp_configured():
+        try:
+            problems = await dynatrace_mcp.list_problems(status="ALL", timeframe="24h", limit=50)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Dynatrace MCP error: {exc}")
+        if not problems:
+            raise HTTPException(status_code=404, detail="No problems found via Dynatrace MCP.")
+        chosen = None
+        if body.problem_id:
+            chosen = next(
+                (p for p in problems if body.problem_id in (p["id"], p["display_id"])), None
+            )
+        chosen = chosen or problems[0]
+        scenario = scenarios.build_custom_scenario(
+            title=chosen["title"],
+            description=f"Dynatrace {chosen['category']} problem (status {chosen['status']})",
+            services=[],
+            severity=chosen["severity"],
+        )
+        scenario["id"] = "dynatrace"
+        scenario["emoji"] = "🟣"
+        scenario["name"] = "Live Dynatrace problem (MCP)"
+        incident_id = str(uuid.uuid4())
+        alert = _alert_from_scenario(scenario, body.owner)
+        alert["problemId"] = chosen["id"]
+        asyncio.create_task(process_incident(incident_id, alert))
+        return {
+            "incident_id": incident_id,
+            "scenario_id": "dynatrace",
+            "problem_id": chosen["id"],
+            "via": "mcp",
+            "message": "Live Dynatrace problem pulled via MCP — analysis started",
+            "status": "analysis_started",
+        }
 
     client = DynatraceClient()
 

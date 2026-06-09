@@ -3,6 +3,7 @@ import Hero from "./components/Hero.jsx";
 import LogoCloud from "./components/LogoCloud.jsx";
 import Problem from "./components/Problem.jsx";
 import HowItWorks from "./components/HowItWorks.jsx";
+import PoweredBy from "./components/PoweredBy.jsx";
 import LiveDemo from "./components/demo/LiveDemo.jsx";
 import Features from "./components/Features.jsx";
 import Metrics from "./components/Metrics.jsx";
@@ -19,6 +20,7 @@ export default function App() {
         <LogoCloud />
         <Problem />
         <HowItWorks />
+        <PoweredBy />
         <LiveDemo />
         <Features />
         <Metrics />

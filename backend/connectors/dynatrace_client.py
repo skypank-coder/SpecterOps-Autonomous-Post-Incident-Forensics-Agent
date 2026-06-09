@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from mcp import scenarios
+from connectors import scenarios
 
 
 def _demo_mode() -> bool:
@@ -38,12 +38,15 @@ def dynatrace_configured() -> bool:
 class DynatraceClient:
     """Async client for the Dynatrace v2 API with a scenario-driven simulation fallback."""
 
-    def __init__(self, problem_id: Optional[str] = None, scenario: Optional[Dict[str, Any]] = None):
+    def __init__(self, problem_id: Optional[str] = None, scenario: Optional[Dict[str, Any]] = None,
+                 simulate: Optional[bool] = None):
         self.problem_id = problem_id or "P-DEMO-001"
         self.scenario = scenario or scenarios.get_scenario("db_index")
         self.base_url = os.getenv("DYNATRACE_URL", "").rstrip("/")
         self.token = os.getenv("DYNATRACE_API_TOKEN", "")
-        self.demo = _demo_mode()
+        # `simulate` overrides DEMO_MODE per call: fictional scenarios always
+        # simulate; only a real Dynatrace problem hits the live API.
+        self.demo = _demo_mode() if simulate is None else simulate
 
     # ------------------------------------------------------------------ #
     def _headers(self) -> Dict[str, str]:

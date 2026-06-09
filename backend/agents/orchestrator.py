@@ -22,7 +22,7 @@ from agents.sentinel_agent import run_sentinel
 from agents.trace_agent import run_trace_archaeologist
 from models.incident import Incident, IncidentStatus
 
-# In-memory stores (sufficient for the demo; swap for MongoDB in production).
+# In-memory hot cache; durably mirrored to Google Cloud Firestore (see storage.py).
 INCIDENTS: Dict[str, Incident] = {}
 SSE_QUEUES: Dict[str, List[asyncio.Queue]] = {}
 # Per-incident event log so late subscribers can replay everything they missed.

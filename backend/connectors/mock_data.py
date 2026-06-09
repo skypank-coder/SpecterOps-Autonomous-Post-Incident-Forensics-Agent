@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from mcp import scenarios
+from connectors import scenarios
 
 
 def _db_index() -> Dict[str, Any]:
