@@ -1,0 +1,30 @@
+# Render Blueprint — free backend deploy (no credit card required).
+#
+# Deploy: Render dashboard → New → Blueprint → connect this GitHub repo.
+# Render reads this file, builds the Docker image, and prompts you for the
+# secret env vars (marked sync:false) which you paste in the dashboard — so no
+# secrets ever live in the repo.
+services:
+  - type: web
+    name: specterops-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DEMO_MODE
+        value: "false"          # set "true" for a zero-dependency public demo
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_API_KEY
+        sync: false             # paste in the Render dashboard
+      - key: DYNATRACE_URL
+        sync: false
+      - key: DYNATRACE_API_TOKEN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false

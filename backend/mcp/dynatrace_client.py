@@ -89,14 +89,26 @@ class DynatraceClient:
         return await self._try_get(f"/api/v2/problems/{problem_id}", fallback={})
 
     async def add_problem_comment(self, problem_id: str, message: str) -> None:
-        """Post a comment back onto a Dynatrace problem (requires problems.write)."""
+        """
+        Post a comment back onto a Dynatrace problem.
+
+        Needs `problems.write` on classic tenants, or the `storage:events:write`
+        platform permission on Grail/Gen3 tenants. On failure we surface
+        Dynatrace's own error message so the cause is obvious.
+        """
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(
                 f"{self.base_url}/api/v2/problems/{problem_id}/comments",
                 headers=self._headers(),
                 json={"message": message, "context": "SpecterOps"},
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                detail = ""
+                try:
+                    detail = (resp.json().get("error", {}) or {}).get("message", "")
+                except Exception:
+                    detail = resp.text[:200]
+                raise RuntimeError(f"HTTP {resp.status_code}: {detail or 'request failed'}")
 
     async def get_problem_details(self) -> Dict[str, Any]:
         if self.demo:

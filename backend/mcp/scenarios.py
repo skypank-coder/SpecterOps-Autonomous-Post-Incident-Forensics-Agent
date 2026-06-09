@@ -418,26 +418,45 @@ def build_dynatrace_scenario(problem: Dict[str, Any]) -> Dict[str, Any]:
 
     err, p99 = _parse_impact(evidence + [title])
 
-    ev = evidence[:6]
-    n = len(ev)
-    start = 1380
-    step = max(60, (start - 120) // max(1, n))
-    timeline = []
-    logs = []
-    for i, d in enumerate(ev):
-        off = start - i * step
-        timeline.append([off, primary, "evidence", d, severity, i == 0])
-        logs.append([off, "ERROR" if severity in ("CRITICAL", "HIGH") else "WARN", d, primary])
-
     others = [s for s in services if s != primary][:3]
-    nodes = [["node-1", primary, evidence[0], start, True]]
-    edges = []
-    prev = "node-1"
-    for j, s in enumerate(others, start=2):
-        nid = f"node-{j}"
-        nodes.append([nid, s, f"Impacted downstream by {primary}", start - (j - 1) * step, False])
-        edges.append([prev, nid, "cascaded to", 0.85])
+    sev_log = "ERROR" if severity in ("CRITICAL", "HIGH") else "WARN"
+    primary_short = primary.split(" in ")[0].split(":")[0].strip()
+
+    # Build a coherent, staged causal chain so the graph and timeline are always
+    # complete — even when a live problem has a single affected entity and one
+    # line of evidence. Stages: (service, description, is_root).
+    stages: List[Tuple[str, str, bool]] = []
+    stages.append((primary, evidence[0], True))
+    for d in evidence[1:4]:  # extra evidence becomes middle stages
+        stages.append((primary, d, False))
+    if len(stages) < 2:       # guarantee a propagation stage
+        stages.append((primary, f"{primary_short} degraded — errors and latency rising", False))
+    if others:                # real downstream services
+        for s in others:
+            stages.append((s, f"Impact propagated to {s}", False))
+    else:                      # synthesize user-facing impact
+        stages.append((f"users of {primary_short}", f"User-facing requests through {primary_short} degraded", False))
+
+    stages = stages[:6]
+    n = len(stages)
+    start = 1380
+    step = max(120, (start - 120) // max(1, n - 1)) if n > 1 else 600
+
+    timeline, logs, nodes, edges = [], [], [], []
+    prev = None
+    for i, (svc, desc, is_root) in enumerate(stages):
+        off = start - i * step
+        etype = "evidence" if i == 0 else ("cascade" if svc != primary else "error")
+        timeline.append([off, svc, etype, desc, severity, is_root])
+        logs.append([off, sev_log, desc, svc])
+        nid = f"node-{i + 1}"
+        nodes.append([nid, svc, desc, off, is_root])
+        if prev:
+            rel = "cascaded to" if svc != primary else "led to"
+            edges.append([prev, nid, rel, 0.86])
         prev = nid
+
+    cascade_chain = list(dict.fromkeys(s for s, _, _ in stages))
 
     explanation = (
         f"Dynatrace flagged '{title}'. The root cause is localized to {primary}"
@@ -472,7 +491,7 @@ def build_dynatrace_scenario(problem: Dict[str, Any]) -> Dict[str, Any]:
         "analysis": {
             "classification_reasoning": f"Dynatrace problem on {primary}: {title}",
             "first_anomaly": evidence[0],
-            "cascade_chain": [primary] + others,
+            "cascade_chain": cascade_chain,
             "root_cause_category": "OTHER",
             "confidence_pct": 88,
             "root_cause_explanation": explanation,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Wand2, ChevronRight, Radio } from "lucide-react";
+import { Zap, Wand2, ChevronRight } from "lucide-react";
+import DynatraceProblems from "./DynatraceProblems.jsx";
 
 const SEV_COLOR = {
   CRITICAL: "text-rose",
@@ -45,33 +46,14 @@ export default function IncidentLauncher({
         </p>
       </div>
 
-      {/* live Dynatrace */}
-      {dynatraceConnected ? (
-        <button
-          onClick={onRunDynatrace}
-          disabled={busy}
-          className="border-glow flex w-full items-center gap-3 rounded-xl border border-brand/30 bg-brand/[0.06] p-4 text-left transition-all hover:-translate-y-0.5 disabled:opacity-50"
-        >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-brand/40 bg-brand/10 text-brand-soft">
-            <Radio className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block font-display text-sm font-semibold text-white">
-              Investigate latest live Dynatrace problem
-            </span>
-            <span className="mt-0.5 block text-xs text-zinc-400">
-              Pulls the most recent open problem from your connected tenant
-            </span>
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-brand-soft" />
-        </button>
-      ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.01] p-3 text-xs text-zinc-500">
-          <Radio className="h-4 w-4 shrink-0" />
-          <span>
-            Connect a live Dynatrace tenant (set <code className="text-zinc-400">DYNATRACE_*</code> and{" "}
-            <code className="text-zinc-400">DEMO_MODE=false</code>) to auto-pull real problems.
-          </span>
+      {/* live Dynatrace — browse & pick a real open problem */}
+      <DynatraceProblems connected={dynatraceConnected} onRun={onRunDynatrace} busy={busy} />
+
+      {dynatraceConnected && (
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/8" />
+          <span className="text-[10px] uppercase tracking-widest text-zinc-600">or replay a scenario</span>
+          <span className="h-px flex-1 bg-white/8" />
         </div>
       )}
 

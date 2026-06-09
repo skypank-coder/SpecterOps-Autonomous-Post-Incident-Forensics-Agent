@@ -24,7 +24,7 @@ export default function CTA() {
                 <Zap className="h-4 w-4" /> Launch the live demo
               </a>
               <a
-                href="https://github.com"
+                href="https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent"
                 target="_blank"
                 rel="noreferrer"
                 className="btn-ghost"

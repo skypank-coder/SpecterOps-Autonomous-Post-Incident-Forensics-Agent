@@ -7,10 +7,14 @@ from fastapi import APIRouter
 
 import storage
 from mcp import scenarios
-from mcp.dynatrace_client import dynatrace_configured
+from mcp.dynatrace_client import DynatraceClient, dynatrace_configured
 from utils.gemini_client import active_model, gemini_available
 
 router = APIRouter(prefix="/api", tags=["meta"])
+
+
+def _demo_mode() -> bool:
+    return os.getenv("DEMO_MODE", "true").lower() in ("1", "true", "yes")
 
 
 @router.get("/config")
@@ -43,3 +47,31 @@ def _slack_configured() -> bool:
 @router.get("/scenarios")
 async def get_scenarios():
     return scenarios.list_scenarios()
+
+
+@router.get("/dynatrace/problems")
+async def list_dynatrace_problems():
+    """List open problems from the live Dynatrace tenant so the user can pick one."""
+    if _demo_mode() or not dynatrace_configured():
+        return {"connected": False, "problems": []}
+
+    client = DynatraceClient()
+    try:
+        data = await client.get_open_problems()
+    except Exception as exc:  # surface, don't crash
+        return {"connected": True, "error": str(exc)[:200], "problems": []}
+
+    out = []
+    for p in (data.get("problems", []) or [])[:25]:
+        services = [e.get("name", "") for e in p.get("affectedEntities", []) if e.get("name")]
+        out.append({
+            "id": p.get("problemId") or p.get("displayId"),
+            "title": p.get("title", "Problem"),
+            "severity": scenarios._DT_SEVERITY.get(p.get("severityLevel", ""), "HIGH"),
+            "severity_level": p.get("severityLevel"),
+            "status": p.get("status"),
+            "services": services[:4],
+            "service_count": len(services),
+            "start_time": p.get("startTime"),
+        })
+    return {"connected": True, "problems": out}

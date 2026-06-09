@@ -54,7 +54,7 @@ cascade across three services — with **94% confidence, in ~0.3s of compute.**
 ## ✨ What's inside
 
 - 🤖 **Four autonomous agents** orchestrated end-to-end, reasoning with **Google Gemini 2.5 Flash**.
-- 🟣 **Live Dynatrace integration** — one click pulls the latest **real open problem** from your tenant and investigates it; the finished RCA can be **pushed back onto the problem as a comment** (closing the loop).
+- 🟣 **Live Dynatrace integration** — **browse all open problems** in your tenant and investigate any one you pick (or auto-grab the latest); the finished RCA can be **pushed back onto the problem as a comment** (closing the loop).
 - 🧪 **Scenario library + custom incidents** — four real-world failure scenarios (missing index, memory leak, bad deploy, dependency outage) plus a **"describe your own"** form.
 - 📡 **Real-time SSE streaming** — every agent's start/finish streams live to the dashboard.
 - 🕸️ **D3 causal graph** + **Three.js** 3D hero + **Framer Motion** — a business-grade UI, not a toy.
@@ -75,7 +75,7 @@ SpecterOps is a pipeline of four specialized agents. Each one does a single job 
 hands structured state to the next. Every step streams to the dashboard live over SSE.
 
 ```
-        Dynatrace Alert  (webhook  ·  or  "⚡ Trigger Demo Incident")
+     Dynatrace problem  (live pull · webhook · scenario · custom incident)
                                    │
                                    ▼
    ┌──────────────────────────────────────────────────────────────────┐
@@ -108,8 +108,11 @@ hands structured state to the next. Every step streams to the dashboard live ove
 
 ## 🎬 The demo
 
-> Open the dashboard, click **⚡ Trigger Demo Incident**, and watch the whole diagnosis
-> happen live in ~30–60 seconds.
+> Sign in, then **choose what to investigate** — a **live open problem pulled straight from
+> your Dynatrace tenant**, a built-in failure scenario, or your own typed incident — and watch
+> all four agents diagnose it live in ~30–60 seconds.
+
+**Example — the "missing index" scenario:**
 
 1. 🛡️ SentinelAgent classifies it as a `DATABASE_ISSUE` on `payment-service`.
 2. 🔍 TraceArchaeologist reconstructs a 7-event timeline and surfaces the impact strip:
@@ -119,12 +122,14 @@ hands structured state to the next. Every step streams to the dashboard live ove
    ```sql
    CREATE INDEX CONCURRENTLY idx_payment_methods_user_id ON payment_methods (user_id);
    ```
+5. 🟣 One click **pushes the finished RCA back onto the Dynatrace problem** as a comment.
 
 A live **"Time to Diagnose"** counter proves the speed claim on screen.
 
-> 💡 **Zero-account demo:** with `DEMO_MODE=true` (default), every Dynatrace call returns
-> realistic simulation data. If no `GEMINI_API_KEY` is set, each agent falls back to a
-> scenario-accurate offline response — so the full pipeline always completes end-to-end.
+> 💡 **Runs with zero accounts:** `DEMO_MODE=true` uses realistic simulated telemetry, and
+> without a `GEMINI_API_KEY` each agent uses a scenario-accurate offline response — so the
+> full pipeline always completes. **Add a Gemini key + a Dynatrace token to make it fully
+> real:** live problems, real LLM reasoning, RCA pushed back to Dynatrace.
 
 ---
 
@@ -145,7 +150,7 @@ uvicorn main:app --reload --port 8000
 # 4 — Frontend (new terminal)  → http://localhost:5173
 cd frontend && npm install && npm run dev
 
-# 5 — Open the dashboard and click "⚡ Trigger Demo Incident"
+# 5 — Open the dashboard, sign in, and pick a scenario (or a live Dynatrace problem)
 ```
 
 > For **live Gemini reasoning**, drop a key from [Google AI Studio](https://aistudio.google.com/apikey)

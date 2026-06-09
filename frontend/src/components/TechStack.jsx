@@ -25,7 +25,7 @@ export default function TechStack() {
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="#demo" className="btn-primary">Try the live demo</a>
             <a
-              href="https://github.com"
+              href="https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent"
               target="_blank"
               rel="noreferrer"
               className="btn-ghost"

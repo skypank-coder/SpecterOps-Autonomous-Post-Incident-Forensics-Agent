@@ -18,10 +18,23 @@ fi
 
 : "${GEMINI_API_KEY:?Set GEMINI_API_KEY in your environment before deploying}"
 
+# DEMO_MODE defaults to true for a safe public URL (no secrets exposed, works for
+# any judge). Export DEMO_MODE=false + DYNATRACE_* to investigate real problems.
+DEMO_MODE="${DEMO_MODE:-true}"
+
 echo "📦 Project:  ${PROJECT_ID}"
 echo "🌎 Region:   ${REGION}"
 echo "🚀 Service:  ${SERVICE_NAME}"
+echo "🧪 DEMO_MODE: ${DEMO_MODE}"
 echo
+
+# Collect only the env vars that are actually set (values must not contain commas).
+ENV_VARS="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},DEMO_MODE=${DEMO_MODE},GEMINI_API_KEY=${GEMINI_API_KEY}"
+[[ -n "${GEMINI_MODEL:-}" ]]        && ENV_VARS+=",GEMINI_MODEL=${GEMINI_MODEL}"
+[[ -n "${DYNATRACE_URL:-}" ]]       && ENV_VARS+=",DYNATRACE_URL=${DYNATRACE_URL}"
+[[ -n "${DYNATRACE_API_TOKEN:-}" ]] && ENV_VARS+=",DYNATRACE_API_TOKEN=${DYNATRACE_API_TOKEN}"
+[[ -n "${MONGODB_URI:-}" ]]         && ENV_VARS+=",MONGODB_URI=${MONGODB_URI}"
+[[ -n "${SLACK_WEBHOOK_URL:-}" ]]   && ENV_VARS+=",SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}"
 
 # 1. Build the container image from the backend.
 echo "🔨 Building container image…"
@@ -35,7 +48,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --region "${REGION}" \
   --allow-unauthenticated \
   --memory 1Gi \
-  --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY},DEMO_MODE=true,GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
+  --set-env-vars "^@@^${ENV_VARS//,/@@}"
 
 # 3. Resolve the deployed URL.
 BACKEND_URL="$(gcloud run services describe "${SERVICE_NAME}" \

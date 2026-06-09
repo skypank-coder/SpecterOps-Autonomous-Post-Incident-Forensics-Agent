@@ -37,6 +37,7 @@ def _demo_mode() -> bool:
 class TriggerRequest(BaseModel):
     scenario_id: Optional[str] = "db_index"
     owner: Optional[str] = None
+    problem_id: Optional[str] = None  # specific Dynatrace problem to investigate
 
 
 class CustomIncidentRequest(BaseModel):
@@ -123,20 +124,29 @@ async def trigger_from_dynatrace(body: Optional[TriggerRequest] = None):
         )
 
     client = DynatraceClient()
-    try:
-        data = await client.get_open_problems()
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Dynatrace API error: {exc}")
 
-    problems = data.get("problems", [])
-    if not problems:
-        raise HTTPException(status_code=404, detail="No open problems found in Dynatrace.")
+    # A specific problem was chosen from the picker, or fall back to the latest.
+    if body.problem_id:
+        try:
+            full = await client.get_problem_by_id(body.problem_id)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Dynatrace API error: {exc}")
+        if not full or not full.get("title"):
+            raise HTTPException(status_code=404, detail="That Dynatrace problem was not found.")
+        problem = full
+        problem_id = body.problem_id
+    else:
+        try:
+            data = await client.get_open_problems()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Dynatrace API error: {exc}")
+        problems = data.get("problems", [])
+        if not problems:
+            raise HTTPException(status_code=404, detail="No open problems found in Dynatrace.")
+        problem = problems[0]
+        problem_id = problem.get("problemId") or problem.get("displayId")
+        full = await client.get_problem_by_id(problem_id) if problem_id else {}
 
-    problem = problems[0]
-    problem_id = problem.get("problemId") or problem.get("displayId")
-
-    # Fetch the full problem (richer evidence) and build a real-data scenario.
-    full = await client.get_problem_by_id(problem_id) if problem_id else {}
     scenario = scenarios.build_dynatrace_scenario(full or problem)
 
     incident_id = str(uuid.uuid4())
@@ -216,7 +226,11 @@ async def push_rca_to_dynatrace(incident_id: str):
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Could not post comment (token may lack 'problems.write' scope): {exc}",
+            detail=(
+                "Dynatrace rejected the comment. The token needs 'problems.write' "
+                "(classic) or the 'storage:events:write' permission (Grail/Gen3 tenants). "
+                f"Details: {exc}"
+            ),
         )
     return {"posted": True, "problem_id": incident.dynatrace_problem_id}
 

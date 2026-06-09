@@ -82,8 +82,11 @@ Provide at least 3 nodes forming a directed chain from root cause to impact."""
     try:
         raw = await gemini_json(prompt)
         result = _parse_json_safe(raw, offline)
-        if not result.get("nodes") or len(result.get("nodes", [])) < 2:
-            result = offline
+        # Require a proper chain; a 1-node "just the root" graph isn't useful, so
+        # fall back to the richer scenario-built chain.
+        if not result.get("nodes") or len(result.get("nodes", [])) < 3:
+            if len(offline.get("nodes", [])) > len(result.get("nodes", [])):
+                result = offline
     except Exception:
         result = offline
 

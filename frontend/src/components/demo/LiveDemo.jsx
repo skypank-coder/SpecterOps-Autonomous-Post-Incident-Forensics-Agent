@@ -7,6 +7,7 @@ import Reveal from "../Reveal.jsx";
 import AgentPipeline from "./AgentPipeline.jsx";
 import CausalGraph from "./CausalGraph.jsx";
 import PostMortem from "./PostMortem.jsx";
+import EvidencePanel from "./EvidencePanel.jsx";
 import ImpactCards from "./ImpactCards.jsx";
 import IncidentLauncher from "./IncidentLauncher.jsx";
 import IncidentSwitcher from "./IncidentSwitcher.jsx";
@@ -135,7 +136,7 @@ export default function LiveDemo() {
     }
   }
 
-  async function runDynatrace() {
+  async function runDynatrace(problemId) {
     setNotice(null);
     setIsAnalyzing(true);
     setView("incident");
@@ -144,7 +145,7 @@ export default function LiveDemo() {
       const res = await fetch(`${API_BASE}/api/incidents/dynatrace/trigger`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ owner }),
+        body: JSON.stringify({ owner, problem_id: typeof problemId === "string" ? problemId : null }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -307,6 +308,7 @@ export default function LiveDemo() {
                     <div className="mb-3 flex gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
                       {[
                         { id: "graph", label: "Causal graph" },
+                        { id: "evidence", label: "Evidence" },
                         { id: "postmortem", label: "Post-mortem" },
                       ].map((t) => (
                         <button
@@ -330,6 +332,8 @@ export default function LiveDemo() {
                       >
                         {tab === "graph" ? (
                           <CausalGraph incident={incident} />
+                        ) : tab === "evidence" ? (
+                          <EvidencePanel incident={incident} />
                         ) : (
                           <PostMortem
                             incident={incident}
