@@ -16,11 +16,18 @@ evidence-backed post-mortem in **under 60 seconds** — no human in the loop.
 
 <br/>
 
+### ▶︎ Live demo: **[specterops-848e3.web.app](https://specterops-848e3.web.app)**
+
+<br/>
+
+[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-specterops--848e3.web.app-00f5a0?style=for-the-badge)](https://specterops-848e3.web.app)
+
 [![CI](https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-00f5a0.svg)](LICENSE)
 [![Partner: Dynatrace](https://img.shields.io/badge/Partner-Dynatrace-9b6cff)]()
 [![AI: Gemini 2.5 Flash](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-4f8cff)]()
-[![Hosted: Cloud Run](https://img.shields.io/badge/Hosted-Cloud%20Run-f5a623)]()
+[![Frontend: Firebase](https://img.shields.io/badge/Frontend-Firebase%20Hosting-f5a623)]()
+[![Backend: Render](https://img.shields.io/badge/Backend-Render-46e3b7)]()
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab.svg)]()
 [![React 18](https://img.shields.io/badge/React-18-61dafb.svg)]()
 
@@ -82,8 +89,8 @@ hands structured state to the next. Every step streams to the dashboard live ove
    │  🛡️  SentinelAgent        Classify the alert · extract entities,   │
    │                           severity, category & metrics to pull     │
    ├──────────────────────────────────────────────────────────────────┤
-   │  🔍  TraceArchaeologist   Query Dynatrace MCP in parallel —        │
-   │                           traces · logs · metrics · topology       │
+   │  🔍  TraceArchaeologist   Query Dynatrace in parallel —            │
+   │                           problems · metrics · entities · logs     │
    │                           → reconstruct a chronological timeline    │
    ├──────────────────────────────────────────────────────────────────┤
    │  🎯  BlameMapper          Build a causal graph · isolate the root  │
@@ -166,12 +173,12 @@ cd frontend && npm install && npm run dev
 | Layer | Technology |
 |:------|:-----------|
 | **Agents / Backend** | Python 3.11 · FastAPI · asyncio · Server-Sent Events |
-| **Reasoning** | Google **Gemini 2.5** (flash/pro) via the `google-genai` SDK |
+| **Reasoning** | Google **Gemini 2.5 Flash** via the `google-genai` SDK (resilient model-fallback chain) |
 | **Observability** | **Dynatrace** v2 API — problems · metrics · entities · logs |
 | **Frontend** | React 18 + Vite · Tailwind CSS · Framer Motion · **Three.js** (3D hero) · **D3** force-directed graph |
 | **Auth** | Firebase Authentication (Google + email) with graceful demo fallback |
-| **Persistence** | MongoDB Atlas (optional) · graceful in-memory fallback |
-| **Deployment** | Docker → Google **Cloud Run** · Firebase Hosting |
+| **Persistence** | MongoDB Atlas · graceful in-memory fallback |
+| **Deployment** | Docker · **Render** (backend) · **Firebase Hosting** (frontend) — 100% free tier |
 | **Quality** | `pytest` + `pytest-asyncio` · GitHub Actions CI |
 
 </div>
@@ -237,18 +244,20 @@ DEMO_MODE=true python -m pytest      # 7 passed
 ```
 SpecterOps/
 ├── .github/workflows/ci.yml    # backend tests + frontend build
+├── render.yaml                 # Render Blueprint (backend deploy)
+├── firebase.json · .firebaserc # Firebase Hosting (frontend deploy)
+├── INTEGRATIONS.md             # go-live guide (Gemini · Dynatrace · Mongo · Firebase · Slack)
 ├── LICENSE                     # MIT
-├── .env.example
 ├── backend/                    # FastAPI app
 │   ├── agents/                 # orchestrator + the 4 agents
-│   ├── mcp/                    # Dynatrace client + simulation data
+│   ├── mcp/                    # Dynatrace client + scenario engine
 │   ├── models/                 # Pydantic domain models
-│   ├── routes/                 # incidents · webhook · SSE stream
+│   ├── routes/                 # incidents · webhook · SSE stream · config
 │   ├── utils/                  # Gemini client (model fallback chain)
+│   ├── storage.py              # MongoDB persistence (graceful fallback)
 │   └── tests/                  # pytest suite
-├── frontend/                   # React + Vite dashboard
-│   └── src/components/         # timeline · D3 graph · post-mortem · impact strip
-└── infra/deploy.sh             # Cloud Run + Firebase deploy
+└── frontend/                   # React + Vite dashboard
+    └── src/components/         # launcher · agents · D3 graph · evidence · post-mortem · auth
 ```
 
 ---
@@ -259,7 +268,7 @@ SpecterOps/
 |:------------------------|:----------------------------------------------------------------------------------------|
 | **Autonomy**            | Four agents run a full alert → post-mortem pipeline with **no human in the loop**.       |
 | **Use of Gemini**       | Gemini 2.5 Flash drives classification, timeline reconstruction, causal reasoning & authoring. |
-| **Partner (Dynatrace)** | Deep MCP integration across problems, traces, logs, metrics and topology.                |
+| **Partner (Dynatrace)** | Pulls **real** open problems (problems · metrics · entities · logs) and **pushes the RCA back** onto the problem. |
 | **Technical execution** | Async parallel data gathering, live SSE streaming, D3 visualization, graceful fallbacks, CI + tests. |
 | **Impact / wow**        | A real outage diagnosed end-to-end in under 60 seconds — **live on screen**.             |
 | **Polish**              | Dark-terminal dashboard, real-time agent timeline, headline impact metrics, rendered post-mortem. |
@@ -268,11 +277,14 @@ SpecterOps/
 
 ## 🗺️ Roadmap
 
-- 🔌 Live Dynatrace MCP server integration (beyond the REST v2 client)
-- 🧩 Pluggable scenario library (memory leaks, bad deploys, traffic spikes)
-- 💾 MongoDB persistence for incident history
-- 🤖 Auto-remediation proposals with human approval gates
-- 🔔 Slack / PagerDuty post-mortem delivery
+Already shipped: live Dynatrace problem pull + RCA push-back, scenario library + custom
+incidents, MongoDB persistence, Firebase auth, Slack delivery. Next:
+
+- 🤖 Approval-gated **auto-remediation execution** (wire the proposed fix into CI/CD)
+- 👥 **Per-user Dynatrace** connect (multi-tenant, OAuth) so each user investigates their own tenant
+- 🎫 Auto-file a **GitHub / Jira** remediation ticket from the post-mortem
+- 🔗 **Multi-incident correlation** — detect when several problems share one root cause
+- 🧩 Native **Dynatrace App** (run SpecterOps inside the Dynatrace platform)
 
 ---
 
@@ -282,5 +294,5 @@ SpecterOps/
 
 <div align="center">
 <br/>
-<sub>Built with Gemini 2.5 Flash · Dynatrace · Google Cloud Run — for the Rapid Agent Hackathon 2026.</sub>
+<sub>Built with Gemini 2.5 Flash · Dynatrace · Render · Firebase — for the Google Cloud Rapid Agent Hackathon 2026.</sub>
 </div>
