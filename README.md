@@ -17,6 +17,7 @@ evidence-backed post-mortem in **under 60 seconds** — no human in the loop.
 
 
 [![Live Demo](https://img.shields.io/badge/▶_Live_Demo-specterops--848e3.web.app-00f5a0?style=for-the-badge)](https://specterops-848e3.web.app)
+[![Watch the Demo](https://img.shields.io/badge/▶_Watch_Demo-YouTube-ff0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/dWa-vSn7WMo)
 
 [![CI](https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/skypank-coder/SpecterOps-Autonomous-Post-Incident-Forensics-Agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-00f5a0.svg)](LICENSE)
@@ -110,6 +111,8 @@ hands structured state to the next. Every step streams to the dashboard live ove
 ---
 
 ## 🎬 The demo
+
+> 📺 **[Watch the 3-minute demo on YouTube →](https://youtu.be/dWa-vSn7WMo)**
 
 > Sign in, then **choose what to investigate** — a **live open problem pulled straight from
 > your Dynatrace tenant**, a built-in failure scenario, or your own typed incident — and watch
